@@ -1,0 +1,9 @@
+{
+  "name": "My C++ Project DevBox",
+  //"image": "ghcr.io/jakoch/cpp-devbox:trixie-20260726"
+  "build": {
+    "dockerfile": "./Dockerfile",
+    // Sets the run context to this .devcontainer folder:
+    "context": "."//,
+  },
+}

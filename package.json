@@ -1,0 +1,18 @@
+{
+  "name": "opencode-orchestra",
+  "version": "0.1.0",
+  "description": "Hierarchical advisor-mode agents for OpenCode with live model-role detection",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "files": ["index.ts", "plugin", "src", "README.md", "docs"],
+  "scripts": {
+    "test": "bun scripts/run-tests.ts"
+  },
+  "keywords": ["opencode", "opencode-plugin", "agents", "orchestration", "multi-agent"],
+  "license": "MIT",
+  "devDependencies": {
+    "@opencode/plugin": "latest"
+  }
+}
