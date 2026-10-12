@@ -6,13 +6,42 @@
   "exports": {
     ".": "./index.ts"
   },
-  "files": ["index.ts", "plugin", "src", "README.md", "docs"],
+  "files": [
+    "index.ts",
+    "plugin",
+    "src",
+    "README.md",
+    "docs"
+  ],
   "scripts": {
-    "test": "bun scripts/run-tests.ts"
+    "lint": "biome check .",
+    "lint:check": "biome lint",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format",
+    "format:write": "biome format --write",
+    "test": "bun test",
+    "test:ci": "bun scripts/run-tests.ts",
+    "typecheck": "tsc --noEmit",
+    "npm:audit": "npm audit --audit-level=high fix",
+    "npm:audit_json": "npm audit --json --audit-level=moderate > audit.json",
+    "npm:outdated": "npm outdated",
+    "npm:clean_install": "npm clean-install --no-audit --strict-peer-deps",
+    "npm:install": "npm install --no-audit --strict-peer-deps",
+    "npm:update": "npm update --no-audit --strict-peer-deps"
   },
-  "keywords": ["opencode", "opencode-plugin", "agents", "orchestration", "multi-agent"],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "agents",
+    "orchestration",
+    "multi-agent"
+  ],
   "license": "MIT",
   "devDependencies": {
-    "@opencode/plugin": "latest"
+    "@biomejs/biome": "^2.5.15",
+    "@opencode/plugin": "latest",
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2"
   }
 }

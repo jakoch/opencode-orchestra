@@ -4,6 +4,6 @@
   "build": {
     "dockerfile": "./Dockerfile",
     // Sets the run context to this .devcontainer folder:
-    "context": "."//,
-  },
+    "context": "." //,
+  }
 }

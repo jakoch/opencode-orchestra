@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+
+    "types": ["bun", "node"],
+    "skipLibCheck": true,
+
+    // Strict throughout. This used to be impossible: the config lived in
+    // `scripts/` because its author was scoped away from the root, and it had
+    // to leave `strictNullChecks` off to get past four genuine type holes. Those
+    // are fixed at the source (`src/selftest.ts` narrows its fixture pairs,
+    // `tests/harness.ts` narrows the hook options bag), so nothing is relaxed to
+    // make the build pass.
+    "strict": true,
+
+    // Not cosmetic. The plugin ships as source (`exports` points at `index.ts`),
+    // so nothing here is ever emitted; these two options are what let
+    // `import "./prompts.ts"` typecheck the way Bun actually runs it.
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitOverride": true
+  },
+  "include": ["index.ts", "src/**/*.ts", "plugin/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules"]
+}

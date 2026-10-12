@@ -7,7 +7,12 @@
       "package": "./plugin",
       "options": {
         "defaultAgent": true,
-        "selftest": true
+        "selftest": true,
+        "debug": true,
+        "roles": {
+          "advisor": "opencode/big-pickle",
+          "skeptic": "opencode/big-pickle"
+        }
       }
     }
   ]

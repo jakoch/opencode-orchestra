@@ -1,0 +1,197 @@
+{
+  // Adapted from jakoch/install-vulkan-sdk-action's biome.json (same schema
+  // version), with three deliberate departures, each because this repo differs:
+  //
+  //   1. `quoteStyle` is "single".
+  //   2. `!tests` is dropped in favour of real ignore paths — this repo's suite
+  //      lives in `tests/`, and the tests here are the point of the linter, not
+  //      an exception to it.
+  //   3. Rules relaxed for this codebase, each because the code is correct as
+  //      written rather than because the rule is inconvenient:
+  //
+  //      - `useNamingConvention` → `strictCase: false`. It flags `providerID`,
+  //        `sessionID` and `modelID`, which are OpenCode API field names. They
+  //        cannot be renamed without breaking the contract with the host.
+  //      - `noVoid` → off. The plugin uses `void somePromise()` to mark a call as
+  //        deliberately unawaited (fire-and-forget in a hook that must not block
+  //        the request). That is the intent the rule cannot see.
+  //      - `useAwait` → off. Several callbacks are `async` because the host's
+  //        hook signature is async, not because they await anything.
+  //      - `noUnusedVariables` off in the TS override, for the reason above.
+  //
+  // Everything else matches the reference, so this file stays diffable against
+  // it when the reference is updated.
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!**/node_modules", "!**/coverage", "!**/dist"]
+  },
+  "formatter": {
+    "enabled": true,
+    "useEditorconfig": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 120,
+    "attributePosition": "auto",
+    "bracketSpacing": true
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noExtraBooleanCast": "error",
+        "noUselessCatch": "error",
+        "noUselessLabel": "error",
+        "noUselessStringConcat": "error",
+        "noVoid": "off",
+        "useOptionalChain": "off",
+        "noAdjacentSpacesInRegex": "error",
+        "noArguments": "error",
+        "noCommaOperator": "error"
+      },
+      "correctness": {
+        "noConstAssign": "error",
+        "noConstantCondition": "error",
+        "noEmptyCharacterClassInRegex": "error",
+        "noEmptyPattern": "error",
+        "noGlobalObjectCalls": "error",
+        "noInnerDeclarations": "error",
+        "noInvalidBuiltinInstantiation": "error",
+        "noInvalidConstructorSuper": "error",
+        "noInvalidUseBeforeDeclaration": "off",
+        "noNonoctalDecimalEscape": "error",
+        "noPrecisionLoss": "error",
+        "noSelfAssign": "error",
+        "noSetterReturn": "error",
+        "noSwitchDeclarations": "error",
+        "noUndeclaredVariables": "off",
+        "noUnreachable": "error",
+        "noUnreachableSuper": "error",
+        "noUnsafeFinally": "error",
+        "noUnsafeOptionalChaining": "error",
+        "noUnusedLabels": "error",
+        "noUnusedPrivateClassMembers": "error",
+        "noUnusedVariables": "error",
+        "useIsNan": "error",
+        "useValidForDirection": "error",
+        "useYield": "error",
+        "useValidTypeof": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off",
+        "noUselessElse": "off",
+        "noUnusedTemplateLiteral": "off",
+        "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } },
+        "useConsistentBuiltinInstantiation": "error",
+        "useConst": "error",
+        "useSingleVarDeclarator": "error",
+        "useTemplate": "error",
+        "useThrowOnlyError": "error",
+        "useNamingConvention": {
+          "level": "error",
+          "options": {
+            "strictCase": false,
+            // The codebase uses SCREAMING_CASE for module-level constant tables
+            // (`TERMINAL_PATTERNS`, `FANOUT_DEFAULTS`, `MATURITY_PENALTY`).
+            // The default convention rejects it, and autofix silently rewrites
+            // the name rather than reporting a conflict, so allowing it up front
+            // is the only way to stop that from happening.
+            "conventions": [
+              { "selector": { "kind": "const" }, "formats": ["CONSTANT_CASE", "camelCase", "PascalCase"] }
+            ]
+          }
+        },
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useNumberNamespace": "error"
+      },
+      "suspicious": {
+        "noAssignInExpressions": "error",
+        "noAsyncPromiseExecutor": "error",
+        "noCatchAssign": "error",
+        "noClassAssign": "error",
+        "noCompareNegZero": "error",
+        "noConsole": "off",
+        "noControlCharactersInRegex": "error",
+        "noDebugger": "error",
+        "noDoubleEquals": "error",
+        "noDuplicateCase": "error",
+        "noDuplicateClassMembers": "error",
+        "noDuplicateObjectKeys": "error",
+        "noDuplicateParameters": "error",
+        "noEmptyBlockStatements": "error",
+        "noFallthroughSwitchClause": "error",
+        "noFunctionAssign": "error",
+        "noGlobalAssign": "error",
+        "noImportAssign": "error",
+        "noMisleadingCharacterClass": "error",
+        "noPrototypeBuiltins": "error",
+        "noRedeclare": "error",
+        "noShadowRestrictedNames": "error",
+        "noSparseArray": "error",
+        "noUnsafeNegation": "error",
+        "useAwait": "off",
+        "useGetterReturn": "error",
+        "noWith": "error",
+        "noVar": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "jsxQuoteStyle": "single",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "none",
+      "semicolons": "asNeeded",
+      "arrowParentheses": "asNeeded",
+      "bracketSameLine": false,
+      "quoteStyle": "single",
+      "attributePosition": "auto",
+      "bracketSpacing": true
+    }
+  },
+  "json": { "parser": { "allowComments": true } },
+  "overrides": [
+    {
+      "includes": ["**/*.ts", "**/*.tsx"],
+      "javascript": { "globals": [] },
+      "linter": {
+        "rules": {
+          "complexity": { "noStaticOnlyClass": "error", "noUselessConstructor": "error" },
+          "correctness": { "noUnusedVariables": "off" },
+          "style": {
+            "noInferrableTypes": "error",
+            "noNamespace": "error",
+            "noNonNullAssertion": "warn",
+            "useConsistentArrayType": "error",
+            "useForOf": "warn",
+            "useShorthandFunctionType": "warn"
+          },
+          "suspicious": {
+            "noEmptyBlockStatements": "error",
+            "noEmptyInterface": "error",
+            "noExplicitAny": "error",
+            "noMisleadingInstantiator": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.spec.{js,ts}", "**/*.test.{js,ts}"],
+      "javascript": { "globals": [] },
+      "linter": {
+        "rules": {
+          "suspicious": { "noFocusedTests": "error", "noSkippedTests": "warn" }
+        }
+      }
+    }
+  ]
+}

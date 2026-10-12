@@ -1,15 +1,7 @@
 /**
- * Context window awareness.
- *
- * The host knows each model's real context limit; anything that assumes a fixed
- * window is wrong for 1M-token models, which then get "near limit" warnings at a
- * fraction of their capacity. This resolves the limit per model and tracks usage
- * so the builder can be warned at the right threshold for the model it is
- * actually running on.
- *
- * Usage comes from the assistant messages the session reports. It is an estimate
- * from reported token counts, not a tokenizer, so thresholds are deliberately
- * conservative.
+ * Context window awareness. The host knows each model's real limit; assuming a fixed
+ * window warns a 1M-token model at a fraction of its capacity. Usage comes from
+ * assistant messages the session reports — an estimate from token counts, not a tokenizer.
  */
 
 export interface ModelContextLimits {
@@ -20,25 +12,19 @@ export interface ModelContextLimits {
 /** Used when neither the option nor the catalog says anything. */
 export const DEFAULT_CONTEXT_LIMIT = 200_000
 
-/** Warn at this fraction of the window. */
 export const DEFAULT_WARN_RATIO = 0.85
 
-/** Nothing is known about a model until it has been seen in a request. */
+/** No override and no seeded catalog limit, so thresholds are guesses. */
 const UNKNOWN = { limit: DEFAULT_CONTEXT_LIMIT, known: false }
 
 export interface ContextOptions {
-  /** Explicit override for every model, from plugin options. */
   overrideMaxTokens?: number
-  /** Fraction of the window at which to warn. */
   warnRatio?: number
 }
 
 /**
- * One request's reported usage, as the host bills it.
- *
- * `input`/`output`/`reasoning` and the cache counters answer different questions:
- * occupancy is what the model must hold in its window, cost is what you are
- * billed. Cached reads are resident context but nearly free, so both views are
+ * One request's reported usage. Occupancy is what the model must hold in its window and cost is
+ * what you are billed, so cached reads count toward the first and not the second — both views are
  * kept rather than collapsed into one number.
  */
 export interface RequestUsage {
@@ -53,14 +39,12 @@ export interface ContextReading {
   known: boolean
   /** Tokens resident in the window: uncached prompt + cached prompt + output. */
   occupancy?: number
-  /** What the request actually cost in prompt tokens, ignoring cache reuse. */
+  /** Uncached prompt plus generated tokens: what the request cost, not what it occupies. */
   billable?: number
   ratio?: number
-  /** True once occupancy passes the warn threshold. */
   warning: boolean
-  /** True once the session is close enough that compaction is likely. */
+  /** True at 95% of the window, where compaction is likely. */
   critical: boolean
-  /** Plain-language note for a prompt or report, when there is something to say. */
   note?: string
 }
 
@@ -70,8 +54,8 @@ export function billableTokens(usage: RequestUsage): number {
 }
 
 /**
- * Tokens the model must hold. Cached prompt tokens still occupy the window even
- * though they are billed at a discount, so they count here and nowhere else.
+ * Tokens the model must hold. Cached prompt tokens still occupy the window even though they are
+ * billed at a discount, so they count here and nowhere else.
  */
 export function occupancyTokens(usage: RequestUsage): number {
   return billableTokens(usage) + (usage.cache?.read ?? 0) + (usage.cache?.write ?? 0)
@@ -79,15 +63,11 @@ export function occupancyTokens(usage: RequestUsage): number {
 
 export class ContextMonitor {
   private readonly limits = new Map<string, number>()
-  /** Session → the model it last ran on. */
   private readonly modelBySession = new Map<string, string>()
   /**
-   * Session → high-water mark of prompt occupancy.
-   *
-   * Each request reports its own usage, and later turns in a session are largely
-   * cache hits, so the newest message is not the window size. Occupancy only
-   * grows within a session, so the maximum across requests is the best estimate
-   * available without a tokenizer.
+   * Session → high-water mark of prompt occupancy. Each request reports its own usage and later
+   * turns in a session are largely cache hits, so the newest message is not the window size; the
+   * maximum across requests is the best estimate available without a tokenizer.
    */
   private readonly peakBySession = new Map<string, number>()
   private readonly warnRatio: number
@@ -119,10 +99,7 @@ export class ContextMonitor {
     return known ? { limit: known, known: true } : UNKNOWN
   }
 
-  /**
-   * Folds one request's usage into the session estimate and reads the result.
-   * Call this for every request; the reading uses the high-water mark.
-   */
+  /** Folds one request's usage into the session estimate and reads the result. */
   observe(sessionID: string, usage: RequestUsage): ContextReading {
     const occupancy = occupancyTokens(usage)
     const billable = billableTokens(usage)
@@ -134,13 +111,13 @@ export class ContextMonitor {
   }
 
   /**
-   * Reads pressure for a session. Use `observe` first to feed usage; calling
-   * this alone reports occupancy only if something has already been observed.
+   * Reads pressure for a session. Call `observe` first to feed usage: on its own this reports an
+   * occupancy only if something has already been observed.
    */
   read(sessionID: string): ContextReading {
     const ref = this.modelBySession.get(sessionID)
     const { limit, known } = ref
-      ? this.limitFor(ref.slice(0, ref.indexOf("/")), ref.slice(ref.indexOf("/") + 1))
+      ? this.limitFor(ref.slice(0, ref.indexOf('/')), ref.slice(ref.indexOf('/') + 1))
       : UNKNOWN
 
     const occupancy = this.peakBySession.get(sessionID)
@@ -158,7 +135,7 @@ export class ContextMonitor {
       billable: this.peakBySession.get(sessionID),
       ratio,
       warning,
-      critical,
+      critical
     }
     if (warning) reading.note = this.note(occupancy, limit, ratio, known)
     return reading
@@ -171,8 +148,8 @@ export class ContextMonitor {
       : `~${formatTokens(occupancy)} tokens occupied; the limit for this model is unknown, assuming ${formatTokens(DEFAULT_CONTEXT_LIMIT)}.`
     const advice =
       ratio >= 0.95
-        ? " Compact now or work will be truncated. Summarize what matters and drop the file dumps."
-        : " Keep tool output small, summarize long reads, and checkpoint decisions before they scroll out."
+        ? ' Compact now or work will be truncated. Summarize what matters and drop the file dumps.'
+        : ' Keep tool output small, summarize long reads, and checkpoint decisions before they scroll out.'
     return `Context ${percent}% full. ${detail}${advice}`
   }
 
@@ -182,7 +159,6 @@ export class ContextMonitor {
     this.peakBySession.delete(sessionID)
   }
 
-  /** Drops session state we have not refreshed recently. */
   prune(activeSessionIDs: Iterable<string>): void {
     const active = new Set(activeSessionIDs)
     for (const sessionID of [...this.modelBySession.keys()]) {

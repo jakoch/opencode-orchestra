@@ -6,4 +6,4 @@
 // explicitly. This re-export is what lets a clone, a symlink, or
 // `opencode plugin add github:jakoch/opencode-orchestra` work with no config
 // file at all.
-export { default } from "./plugin/index.ts"
+export { default } from './plugin/index.ts'

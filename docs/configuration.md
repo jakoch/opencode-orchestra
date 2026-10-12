@@ -12,28 +12,19 @@ entry.
 | `opencode plugin add github:jakoch/opencode-orchestra` | every project | none |
 | `plugins: [{ "package": "./plugin" }]` | one project | yes |
 
-The first three need no config file; the last is the only route that takes
-options, which is why `defaultAgent` is unavailable in the others.
+The first three need no config file; the last is the only route that takes options — which is why `defaultAgent` is unavailable elsewhere.
 
 ### Discovery requires a root entry
 
-OpenCode loads a plugin *package directory* by its root entry. This repository's
-`index.ts` re-exports `plugin/index.ts` for exactly that reason: without it, a
-clone into `.opencode/plugins/orchestra` is silently ignored, while a config
-entry pointing at `./plugin` still works. If you vendor the files into your own
-repo, keep the re-export or point the config at the directory that has the entry.
+OpenCode loads a plugin package directory by its root entry. This repo's `index.ts` re-exports `plugin/index.ts`: without it, a clone into `.opencode/plugins/orchestra` is silently ignored. Keep the re-export if you vendor the files.
 
 ### Symlinks
 
-A symlink into the global plugins directory works and is the usual dotfiles
-pattern:
+Link the `plugins/` subdirectory (not the whole config dir) so OpenCode's `service.json` stays intact:
 
 ```sh
 ln -s "$HOME/dotfiles/opencode-orchestra" ~/.config/opencode/plugins/opencode-orchestra
 ```
-
-OpenCode writes `~/.config/opencode/service.json`, so link the `plugins/`
-subdirectory rather than replacing the whole config directory.
 
 ### Per-project config
 
@@ -46,8 +37,7 @@ subdirectory rather than replacing the whole config directory.
 }
 ```
 
-Relative paths resolve from the config file that contains them. A project config
-overrides the global one, so pins can differ per repo.
+Relative paths resolve from the config file that contains them. Project config overrides global, so pins can differ per repo.
 
 ## Options
 
@@ -55,14 +45,19 @@ overrides the global one, so pins can differ per repo.
 | --- | --- | --- |
 | `enabled` | `true` | `false` keeps the plugin loaded but inert. |
 | `defaultAgent` | `false` | Also make `builder` the default primary agent. |
-| `defaultModel` | `false` | Also make new sessions start on the builder's model. See [below](#why-defaultmodel-exists). |
+| `defaultModel` | `false` | Also make new sessions start on the builder's model. See below. |
 | `pin` | `.opencode/orchestra.json` | Pin file path relative to the project. `false` disables pinning. |
 | `roles` | – | Force a role onto a model: `{ "advisor": "anthropic/claude-opus-4-1" }`. `null` disables a role entirely. |
 | `variants` | – | Force a reasoning variant: `{ "scout": "low" }`. `null` drops the variant and uses the provider default. |
-| `hideAdvisor` | `false` | Keep the advisor out of `@`-mention listings. It stays callable by ID. |
+| `hideAdvisor` | `false` | Keep the advisor *and the skeptic* out of `@`-mention listings. Both stay callable by ID. |
 | `steps` | – | Step ceilings per role: `{ "scout": 24 }`. |
+| `debug` | `false` | Trace every session-backed delegation to `.opencode/orchestra-debug.jsonl`: which host call ran, how long, and the **shape** of the transcript returned. Shapes, never text. |
+| `tracePath` | `.opencode/orchestra-debug.jsonl` | Where that trace goes. Absolute, or relative to the project. |
 | `commands` | `true` | Register the slash commands. |
 | `selftest` | `false` | Register `/orchestra-selftest`. |
+| `probeTimeoutMs` | `45000` | Per-model budget for `/orchestra probe`. |
+| `sessionDelegate` | `true` | Register session-backed `scout` / `advisor` / `skeptic` tools. Set `false` to register only plugin tools. |
+| `delegateTimeoutMs` | `300000` | Budget for one delegated turn, end to end. |
 | `quarantine` | `true` | Drop models that fail at request time. |
 | `evidence` | `true` | Track files changed since the last verification run. |
 | `loopGuard` | `true` | Circuit-break repeated tool calls or identical turns. |
@@ -72,25 +67,20 @@ overrides the global one, so pins can differ per repo.
 | `maxConcurrentSubagents` | `2` | Concurrent subagent launches per session. Excess launches queue. `0` disables the gate. |
 | `fanoutWaitMs` | `120000` | How long a launch waits for a slot before it is refused. |
 
+### Delegation routes
+
+A free-tier credential refuses the host's child-session subagent launch ("the free tier can only be used from within OpenCode"). The plugin registers `orchestra_scout` and `orchestra_advisor` tools instead, which run the same agents over an **ordinary** session: create, move into the project, switch agent, prompt, wait, read reply, remove. Same agent, same prompt — only the delivery differs.
+
+If you touch `src/delegate.ts`:
+
+- The session **must be moved** into the project before the agent switch. Sessions are created in the server's default directory; agents are per directory; a mismatch fails silently.
+- The transcript is `type: "assistant"` with a `content` array — not `role`/`parts`.
+
 ### Why `maxConcurrentSubagents` exists
 
-A session's model selection does not bound how many subagents the builder
-launches in one message, and the `subagent` permission gates only *which* agent
-runs. On a capped tier an unbounded fan-out turns a rate limit into a failed
-session.
+The `subagent` permission gates *which* agent runs, not how many at once. On a capped tier an unbounded fan-out turns a rate limit into a failed session. The gate runs before dispatch: launches past the limit wait instead of failing. Only a launch that cannot get a slot within `fanoutWaitMs` is refused, naming what was launched.
 
-The gate runs before dispatch, turning a stampede into a queue: launches past the
-limit wait instead of failing, because a model refused four searches usually
-drops three. Only a launch that cannot get a slot within `fanoutWaitMs` is
-refused, naming what was launched.
-
-Two consequences: a slow scout holds its slot while it runs, so a limit of 2
-means one scout while you work or a scout plus the advisor at a checkpoint; and
-the gate is per session, so two sessions do not block each other.
-
-Precedence, highest first: plugin options, then the pin file, then live
-detection. An option or pin naming an unavailable model is reported and falls
-back.
+Precedence: plugin options, then the pin file, then live detection. An option or pin naming an unavailable model is reported and falls back.
 
 ## Choosing models yourself
 
@@ -105,12 +95,9 @@ Detection is a default, not a cage. Three levels of override:
 }
 ```
 
-`null` on a role disables it: no agent is registered, and it is skipped when
-pinning.
+`null` on a role disables it: no agent is registered, skipped when pinning.
 
-**The whole assignment** — `/orchestra-pin` writes the current picks to
-`.opencode/orchestra.json`, which is worth committing, because without it a
-provider upgrade silently re-roles your team.
+**The whole assignment** — `/orchestra-pin` writes the current picks to `.opencode/orchestra.json`, worth committing because without it a provider upgrade silently re-roles your team:
 
 ```json
 {
@@ -122,17 +109,29 @@ provider upgrade silently re-roles your team.
 }
 ```
 
-**The prompts** — define the agent yourself in `.opencode/agents/advisor.md`.
-The plugin keeps your prompt and permissions and only retargets the model; the
-report marks such roles as `yours, model retargeted`.
+**The prompts** — define the agent yourself in `.opencode/agents/advisor.md`. The plugin keeps your prompt and permissions, only retargets the model. Report marks the role as `yours, model retargeted`.
+
+## Debugging a delegation that returns nothing
+
+Set `"debug": true`, then read `.opencode/orchestra-debug.jsonl`:
+
+```
+{"t":1757..,"event":"step","step":"create","outcome":"ok","ms":3}
+{"t":1757..,"event":"step","step":"wait","outcome":"failed","error":"timed out after 300000ms while wait"}
+{"t":1757..,"event":"failed","error":"timed out after 300000ms while wait"}
+```
+
+Read it like this:
+
+- **`step` with `outcome:"failed"`** — names the host call that died. No `context` line, so the turn never got that far.
+- **`context` line whose `shape` lacks `type=assistant`** — transcript came back in an unmatched shape: the reply was never missing, just unread.
+- **`context` line followed by `{"extracted":false}`** — transcript well-formed but genuinely held no text: failed at the provider.
+
+It records shapes, never text. A diagnostic must never be the reason a dispatch fails, so write failures are swallowed.
 
 ## Why `defaultModel` exists
 
-A session stores its own model selection, and that selection wins over an
-agent's `model`. Binding a model to the `builder` agent is therefore not enough:
-a session with no explicit `model` falls back to whatever OpenCode picks as the
-catalog default — the newest available model, which is arbitrary and may be
-rate-limited. `/orchestra` warns whenever the two disagree.
+A session's own model selection wins over an agent's `model`. Binding a model to the `builder` agent is not enough: a session with no explicit `model` falls back to the catalog default — newest available, arbitrary, possibly rate-limited. `/orchestra` warns when they disagree.
 
 Either let the plugin set it:
 
@@ -140,21 +139,17 @@ Either let the plugin set it:
 "options": { "defaultModel": true }
 ```
 
-or do it declaratively, which wins over anything the plugin does:
+Or do it declaratively, which wins over anything the plugin does:
 
 ```jsonc
 { "model": "anthropic/claude-sonnet-4-5" }
 ```
 
-Model IDs are case-sensitive and come from the catalog, not the display name:
-`anthropic/claude-opus-4-1` resolves, `anthropic/ClaudeOpus` does not, and a
-wrong `model` in config is ignored silently rather than reported. Check the
-available IDs with `opencode api get /api/model`.
+Model IDs are case-sensitive and come from the catalog, not the display name: `anthropic/claude-opus-4-1` resolves, `anthropic/ClaudeOpus` does not. A wrong `model` is ignored silently, not reported. Check IDs with `opencode api get /api/model`.
 
 ## Without the plugin
 
-Every role is an ordinary OpenCode agent, so the same setup works as plain
-config. `/orchestra-pin` prints a ready-to-paste `agents` block:
+Every role is an ordinary OpenCode agent — same setup as plain config. `/orchestra-pin` prints a ready-to-paste `agents` block:
 
 ```jsonc
 {
@@ -185,9 +180,6 @@ config. `/orchestra-pin` prints a ready-to-paste `agents` block:
 }
 ```
 
-Model IDs here are examples. If the plugin is loaded alongside an agent of the
-same name, the plugin only retargets the model — your prompt and permissions win.
+Model IDs here are examples. If the plugin is loaded alongside an agent of the same name, the plugin only retargets the model — your prompt and permissions win.
 
-The plugin itself has no runtime dependencies. It exports a plain
-`{ id, setup }` object, which is what OpenCode reads; install `@opencode/plugin`
-only if you want the entrypoint type-checked against the published contract.
+The plugin exports a plain `{ id, setup }` object, which is what OpenCode reads; install `@opencode/plugin` only to type-check the entrypoint against the published contract.
