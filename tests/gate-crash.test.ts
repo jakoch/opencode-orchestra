@@ -215,9 +215,7 @@ describe('the same, across all three dimensions', () => {
 
     // Different session, same model: it gets the session slot, is refused on the
     // model, and must give the session slot back on the way out.
-    await expect(
-      gate.admit(call({ id: 'b', sessionID: 's2', model: 'ollama/deep' }))
-    ).rejects.toThrow(/per model|busy/)
+    await expect(gate.admit(call({ id: 'b', sessionID: 's2', model: 'ollama/deep' }))).rejects.toThrow(/per model|busy/)
 
     // s2 was never wedged; if the unwind had missed, this second attempt would
     // have run into a full session gate rather than the same model refusal.

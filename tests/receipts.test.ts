@@ -223,7 +223,11 @@ describe('the uncertain status', () => {
     // receipt would describe a different turn from the one that failed.
     const store = new ReceiptStore()
     const receipt = store.begin('s', 'scout', 'q')
-    store.settle('s', receipt.id, { ok: false, status: 'refused', error: 'a message no classifier would read as a refusal' })
+    store.settle('s', receipt.id, {
+      ok: false,
+      status: 'refused',
+      error: 'a message no classifier would read as a refusal'
+    })
     expect(store.unconsumed('s')[0]?.status).toBe('refused')
   })
 

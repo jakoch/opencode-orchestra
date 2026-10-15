@@ -33,6 +33,7 @@ describe('outcome mapping', () => {
     const representative: Record<FailureClass, string> = {
       withdrawn: 'model retired',
       rejected: 'free tier can only be used within opencode',
+      // biome-ignore lint/style/useNamingConvention: key matches FailureClass type
       rate_limited: 'Rate limit exceeded',
       transport: 'read ECONNRESET',
       interrupted: 'request timed out',
